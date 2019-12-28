@@ -24,6 +24,8 @@ dependencies:
 - aoc
 - megaparsec
 - text
+- containers
+- extra
 
 library:
   source-dirs: src

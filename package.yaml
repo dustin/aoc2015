@@ -22,6 +22,8 @@ description:         Please see the README on GitHub at <https://github.com/dust
 dependencies:
 - base >= 4.7 && < 5
 - aoc
+- megaparsec
+- text
 
 library:
   source-dirs: src
@@ -32,6 +34,7 @@ default-extensions:
   - OverloadedStrings
   - RecordWildCards
   - NamedFieldPuns
+  - TupleSections
 
 executables:
   aoc2015:

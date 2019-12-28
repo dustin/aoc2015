@@ -30,6 +30,7 @@ dependencies:
 - bytestring
 - byteable
 - parallel
+- array
 
 library:
   source-dirs: src

@@ -26,6 +26,10 @@ dependencies:
 - text
 - containers
 - extra
+- cryptohash
+- bytestring
+- byteable
+- parallel
 
 library:
   source-dirs: src

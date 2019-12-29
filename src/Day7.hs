@@ -80,7 +80,6 @@ eval ins = foldl' (flip e) mempty (reverse topSorted)
 part1 :: IO Word16
 part1 = (Map.! "a") . eval <$> getInput "input/day7"
 
-
 part2 :: IO Word16
 part2 = do
   ins <- getInput "input/day7"

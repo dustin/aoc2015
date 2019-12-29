@@ -32,6 +32,9 @@ dependencies:
 - parallel
 - array
 - lens
+- aeson
+- lens-aeson
+- scientific
 
 library:
   source-dirs: src

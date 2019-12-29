@@ -24,6 +24,12 @@ getInput fp = parseFile parseAll fp
         parseRoute = Route <$> lexeme loc <*> (lexeme "to" *> lexeme loc) <*> (lexeme "=" *> L.decimal)
         loc = T.pack <$> many letterChar
 
+getInput' :: FilePath -> IO [Route]
+getInput' fp = map r . lines <$> readFile fp
+  where r x = case words x of
+                [a, "to", b, "=", c] -> Route (T.pack a) (T.pack b) (read c)
+                _                    -> error "bad line"
+
 mkMap :: [Route] -> Map Text [(Int, Text)]
 mkMap = Map.fromListWith (<>) . foldMap (\(Route f t c) -> [(t,[(c,f)]), (f,[(c,t)])])
 

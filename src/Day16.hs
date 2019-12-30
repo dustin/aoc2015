@@ -5,8 +5,6 @@ import           Control.Applicative        (liftA2)
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as Map
 import           Data.Maybe                 (fromMaybe)
-import           Data.Sequence              (Seq)
-import qualified Data.Sequence              as Seq
 import qualified Data.Set                   as Set
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
@@ -24,8 +22,8 @@ data Sue = Sue {
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme space
 
-getInput :: FilePath -> IO (Seq Sue)
-getInput fp = Seq.fromList <$> parseFile parseAll fp
+getInput :: FilePath -> IO [Sue]
+getInput fp = parseFile parseAll fp
   where
     parseAll = parseSue `endBy` "\n"
     parseSue = Sue <$> (lexeme "Sue" *> L.decimal) <*> (lexeme ":" *> parseProps)
@@ -45,16 +43,11 @@ want = Map.fromList [("children", 3),
                      ("perfumes", 1)
                     ]
 part1 :: IO Int
-part1 = do
-  suz <- getInput "input/day16"
-  let (sz Seq.:<| _) = Seq.filter (\Sue{stuff} -> Map.restrictKeys want (Map.keysSet stuff) == stuff) suz
-  pure . sueNum $ sz
+part1 = sueNum . head . filter f <$> getInput "input/day16"
+  where f Sue{stuff} = Map.restrictKeys want (Map.keysSet stuff) == stuff
 
 part2 :: IO Int
-part2 = do
-  suz <- getInput "input/day16"
-  let (sz Seq.:<| _) = Seq.filter f suz
-  pure . sueNum $ sz
+part2 = sueNum . head . filter f <$> getInput "input/day16"
 
   where f Sue{..} = baseCase && catCase && pomCase
           where baseCase = Map.restrictKeys want baseStuff == Map.restrictKeys stuff baseStuff

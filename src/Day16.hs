@@ -47,7 +47,7 @@ want = Map.fromList [("children", 3),
 part1 :: IO Int
 part1 = do
   suz <- getInput "input/day16"
-  let (sz Seq.:<| _) = Seq.filter (\Sue{stuff} -> let w = Map.restrictKeys want (Map.keysSet stuff) in w == stuff) suz
+  let (sz Seq.:<| _) = Seq.filter (\Sue{stuff} -> Map.restrictKeys want (Map.keysSet stuff) == stuff) suz
   pure . sueNum $ sz
 
 part2 :: IO Int
@@ -57,7 +57,7 @@ part2 = do
   pure . sueNum $ sz
 
   where f Sue{..} = baseCase && catCase && pomCase
-          where baseCase = let w = Map.restrictKeys want baseStuff in w == Map.restrictKeys stuff baseStuff
+          where baseCase = Map.restrictKeys want baseStuff == Map.restrictKeys stuff baseStuff
                 baseStuff = Map.keysSet stuff `Set.difference` never
 
                 catCase = gc 7 "cat" && gc 3 "trees"

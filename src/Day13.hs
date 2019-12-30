@@ -44,7 +44,8 @@ people = Map.keys
 type Arrangement = Seq Person
 
 arrangements :: HSMap -> [Arrangement]
-arrangements hs = Seq.fromList <$> permutations (people hs)
+arrangements hs = Seq.fromList . (p:) <$> permutations pl
+  where (p:pl) = people hs
 
 cost :: HSMap -> Arrangement -> Int
 cost hs a = getSum . Seq.foldMapWithIndex score $ a

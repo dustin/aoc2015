@@ -7,10 +7,11 @@ import           Advent.AoC                 (parseFile)
 import           Control.Applicative        (liftA2)
 import           Data.Char                  (isUpper)
 import           Data.List                  (isPrefixOf)
-import           Data.List.Extra            (breakOn, repeatedly)
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Set                   as Set
+import qualified Data.Text                  as T
+import qualified Data.Text.Internal.Search  as T
 import           Text.Megaparsec            (many, try)
 import           Text.Megaparsec.Char       (eol, letterChar, space, space1)
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -37,13 +38,12 @@ expand m = nf
 part1 :: IO Int
 part1 = length . Set.fromList . uncurry expand <$> getInput "input/day19"
 
--- var num = str.Count(char.IsUpper) - countStr("Rn") - countStr("Ar") - 2 * countStr("Y") - 1;
+compute :: String -> Int
+compute s = uppers - count "Ar" - count "Rn" - (2 * count "Y") - 1
+  where
+    st = T.pack s
+    uppers = T.length . T.filter isUpper $ st
+    count = length . flip T.indices st
+
 part2 :: IO Int
-part2 = do
-  (_, s) <- getInput "input/day19"
-  let uppers = length . filter isUpper $ s
-      count x = pred . length . repeatedly (fmap (drop (length x)) . breakOn x) $ s
-      ys = count "Y"
-      rns = count "Rn"
-      ars = count "Ar"
-  pure $ uppers - rns - ars - (2*ys) - 1
+part2 = compute . snd <$> getInput "input/day19"

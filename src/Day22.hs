@@ -127,9 +127,8 @@ allGames p1 p2 = evalState (go p1 p2) maxBound
     go a b
       | bossDead = do
           mn <- get
-          if currentSpent < mn
-            then put currentSpent *> pure [FinalState a b]
-            else pure []
+          when (isPlayer a && currentSpent < mn) $ put currentSpent
+          pure [FinalState a b]
       | otherDead = pure []
       | i'mOut = pure []
       | otherwise = do

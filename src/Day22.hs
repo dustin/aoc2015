@@ -2,14 +2,15 @@
 
 module Day22 where
 
-import Control.Applicative ((<|>))
-import Data.Function (on)
+import           Control.Applicative ((<|>))
 import           Control.Lens
-import Data.Foldable (fold)
-import Control.Monad.State
-import           Data.Tuple      (swap)
-import Data.Set (Set)
-import qualified Data.Set as Set
+import           Control.Monad.State
+import           Data.Either         (isRight)
+import           Data.Foldable       (fold)
+import           Data.Function       (on)
+import           Data.Set            (Set)
+import qualified Data.Set            as Set
+import           Data.Tuple          (swap)
 
 {-
 Magic Missile costs 53 mana. It instantly does 4 damage.
@@ -93,11 +94,10 @@ availableSpells Player{_offense=Right mana, _active} = [x | x <- [minBound..], c
 availableSpells _ = []
 
 isPlayer :: Player -> Bool
-isPlayer Player{_offense = Left _} = False
-isPlayer _                         = True
+isPlayer = isRight . _offense
 
 runTimers :: Player -> Player
-runTimers p@Player{_effects=[]} = p
+runTimers p@Player{_effects=[]}     = p
 runTimers p@Player{_effects=(x:xs)} = foldr ($) p x & effects .~ xs
 
 {-

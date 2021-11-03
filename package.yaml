@@ -33,6 +33,8 @@ dependencies:
 - array
 - lens
 - aeson
+- mtl
+- transformers
 - lens-aeson
 - scientific
 

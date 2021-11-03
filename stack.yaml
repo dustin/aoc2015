@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-14.18
+resolver: lts-18.14
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -41,7 +41,7 @@ packages:
 #
 extra-deps:
 - git: https://github.com/dustin/aoc.git
-  commit: 3bedd5ac82a118c170dcc9e7233ba2ac52ee9c51
+  commit: 60b4a01f9c09863d16833bcd766daf8855281d26
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

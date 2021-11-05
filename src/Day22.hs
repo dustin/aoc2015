@@ -1,13 +1,16 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell  #-}
 
 module Day22 where
 
 import           Control.Lens
+import           Control.Monad.Cont
 import           Control.Monad.State
 import           Data.Foldable       (traverse_)
-import           Data.List           (partition)
 import           Data.Map.Strict     (Map)
 import qualified Data.Map.Strict     as Map
+import           Data.These
+import           Data.Tuple          (swap)
 
 {-
 Magic Missile costs 53 mana. It instantly does 4 damage.
@@ -81,12 +84,16 @@ data GameState = GameState {
 
 makeLenses ''GameState
 
-cast :: Magic -> Player -> Boss -> (Player, Boss)
-cast m@Missile p b  = (spendMana m p, b & hp -~ 4)
-cast m@Drain p b    = (spendMana m p & hp +~ 2, b & hp -~ 2)
-cast m@Shield p b   = (spendMana m p & inUse . at m ?~ 6, b)
-cast m@Poison p b   = (spendMana m p & inUse . at m ?~ 6, b)
-cast m@Recharge p b = (spendMana m p & inUse . at m ?~ 5, b)
+cast :: Magic -> Player -> Boss -> Maybe (Player, Boss)
+cast m p@Player{_mana, _inUse} b
+  | cost m > _mana || m `Map.member` _inUse = Nothing
+  | otherwise = Just (c m (spendMana m p, b))
+  where
+    c Missile v  = v & _2 . hp -~ 4
+    c Drain v    = v & _1 . hp +~ 2 & _2 . hp -~ 2
+    c Shield v   = v & _1 . inUse . at m ?~ 6
+    c Poison v   = v & _1 . inUse . at m ?~ 6
+    c Recharge v = v & _1 . inUse . at m ?~ 5
 
 stillAlive :: HasHP t => t -> Bool
 stillAlive p = p ^?! hp > 0
@@ -105,24 +112,26 @@ armor Player{_inUse}
   | otherwise = 0
 
 aRound :: Player -> Boss -> State GameState [(Player, Boss)]
-aRound ip b = do
-  GameState{..} <- get
+aRound ip b = get >>= \GameState{..} -> do
   let p = ip & hp -~ _preFight
-      (ongoing, won) = partition (stillAlive . snd) $ do
-        guard (stillAlive p)
-        guard (_spent p < _bestScore)
-        let (p', b') = applyActive p b
-        spell <- availableSpells p'
-        let (p'', b'') = cast spell p' b'
-        if stillAlive b'' then do
-          let p''' = p'' & hp -~ max 1 (b'' ^?! attack - armor p'')
-              (fp, fb) = applyActive p''' b''
+  reses <- forM [minBound..] $ \spell -> flip runContT pure $ callCC $ \exit -> do
+    check p b exit
+    when (_spent p >= _bestScore) $ exit (This b)
+    let (p', b') = applyActive p b
+    (p'', b'') <- maybe (exit (This b') *> undefined) pure $ cast spell p' b'
+    check p'' b'' exit
+    let p''' = p'' & hp -~ max 1 (b'' ^?! attack - armor p'')
+        (fp, fb) = applyActive p''' b''
+    check fp fb exit
+    pure $ These fb fp
+  let (_, won, ongoing) = partitionThese reses
+  mapM_ (\Player{_spent} -> when (_spent < _bestScore) $ bestScore #= _spent) won
+  pure (swap <$> ongoing)
 
-          guard (stillAlive fp)
-          pure (fp, fb)
-          else pure (p'', b'')
-  mapM_ (\(Player{_spent}, _) -> when (_spent < _bestScore) $ bestScore #= _spent) won
-  pure ongoing
+  where
+    check p' b' exit = do
+      when (not $ stillAlive p') $ exit (This b')
+      when (not $ stillAlive b') $ exit (That p')
 
 allGames :: Int -> Player -> Boss -> GameState
 allGames o ip ib = execState (go ip ib) (GameState maxBound o)

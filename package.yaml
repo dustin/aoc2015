@@ -37,6 +37,7 @@ dependencies:
 - transformers
 - lens-aeson
 - scientific
+- these
 
 library:
   source-dirs: src

@@ -106,12 +106,11 @@ armor Player{_inUse}
 
 aRound :: Player -> Boss -> State GameState [(Player, Boss)]
 aRound ip b = do
-  mn <- gets _bestScore
-  pf <- gets _preFight
-  let p = ip & hp -~ pf
+  GameState{..} <- get
+  let p = ip & hp -~ _preFight
       (ongoing, won) = partition (stillAlive . snd) $ do
         guard (stillAlive p)
-        guard (_spent p < mn)
+        guard (_spent p < _bestScore)
         let (p', b') = applyActive p b
         spell <- availableSpells p'
         let (p'', b'') = cast spell p' b'
@@ -122,7 +121,7 @@ aRound ip b = do
           guard (stillAlive fp)
           pure (fp, fb)
           else pure (p'', b'')
-  mapM_ (\(Player{_spent}, _) -> when (_spent < mn) $ bestScore #= _spent) won
+  mapM_ (\(Player{_spent}, _) -> when (_spent < _bestScore) $ bestScore #= _spent) won
   pure ongoing
 
 allGames :: Int -> Player -> Boss -> GameState

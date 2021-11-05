@@ -2,15 +2,12 @@
 
 module Day22 where
 
-import           Control.Applicative ((<|>))
 import           Control.Lens
 import           Control.Monad.State
-import           Data.Either         (isRight)
-import           Data.Foldable       (fold)
-import           Data.Function       (on)
-import           Data.Set            (Set)
-import qualified Data.Set            as Set
-import           Data.Tuple          (swap)
+import           Data.Foldable       (traverse_)
+import           Data.List           (partition)
+import           Data.Map.Strict     (Map)
+import qualified Data.Map.Strict     as Map
 
 {-
 Magic Missile costs 53 mana. It instantly does 4 damage.
@@ -31,18 +28,29 @@ new mana.
 
 data Magic = Missile | Drain | Shield | Poison | Recharge deriving (Enum, Eq, Ord, Bounded, Show)
 
-type Modification = Player -> Player
-
 data Player = Player {
-  _hitPoints   :: !Int
-  , _armor     :: !Int
-  , _offense   :: !(Either Int Int) -- damage, mana
-  , _effects   :: ![[Modification]]
-  , _active    :: !(Set Magic) -- active spells
-  , _manaSpent :: !Int
-  }
+  _pHitPoints :: !Int
+  , _mana     :: !Int
+  , _spent    :: !Int
+  , _inUse    :: Map Magic Int
+  } deriving Show
+
+class HasHP t where
+  hp :: Lens' t Int
+
+instance HasHP Player where
+  hp = lens _pHitPoints (\p x -> p{_pHitPoints=x})
+
+data Boss = Boss {
+  _bHitPoints :: !Int,
+  _attack     :: !Int
+  } deriving Show
+
+instance HasHP Boss where
+  hp = lens _bHitPoints (\b x -> b{_bHitPoints=x})
 
 makeLenses ''Player
+makeLenses ''Boss
 
 cost :: Magic -> Int
 cost Missile  = 53
@@ -53,103 +61,76 @@ cost Recharge = 229
 {-# INLINE cost #-}
 
 spendMana :: Magic -> Player -> Player
-spendMana m p = p & offense . _Right -~ c & manaSpent +~ c
+spendMana m p = p & mana -~ c & spent +~ c
   where c = cost m
 
-infill :: [a] -> [[a]] -> [[a]]
-infill new old = zipWith (:) new (old <> repeat [])
-
-deleteAfter :: Int -> Magic -> [Modification]
-deleteAfter x m = replicate x id <> [over active (m `Set.delete`)]
-
-applyMagic :: Magic -> Player -> Player -> (Player, Player)
--- missle costs 53 and does 4 damage
-applyMagic m@Missile p1@Player{_offense} p2@Player{_hitPoints} =
-  (spendMana m p1, p2 & hitPoints -~ 4)
--- drain costs 73 and does 2 damage then heals 2
-applyMagic m@Drain p1 p2 =
-  (spendMana m p1 & hitPoints +~ 2, p2 & hitPoints -~ 2)
--- shield costs 113 and lasts 6 turns over which armor is increased by 7
-applyMagic m@Shield p1 p2 =
-  (spendMana m p1 & armor +~ 7
-                  & effects %~ infill (replicate 6 id <> [armor -~ 7])
-                  & effects %~ infill (deleteAfter 6 m)
-                  & active <>~ Set.singleton m,
-   p2)
--- poison costs 173 and lasts 6 turns, giving the enemy 3 damage per cycle
-applyMagic m@Poison p1@Player{_offense} p2@Player{_effects} =
-  (spendMana m p1 & active <>~ Set.singleton m
-                  & effects %~ infill (deleteAfter 6 m),
-   p2 & hitPoints -~ 3 &  effects %~ (infill (replicate 6 (over hitPoints (subtract 3)))))
--- recharge costs 229 and gives 101 over the next 5 turns
-applyMagic m@Recharge p1@Player{_offense, _effects} p2 =
-  (spendMana m p1 & effects %~ infill (replicate 5 (over (offense . _Right) (+ 101)))
-                  & effects %~ infill (deleteAfter 5 m)
-                  & active <>~ Set.singleton m,
-   p2)
-
 availableSpells :: Player -> [Magic]
-availableSpells Player{_offense=Right mana, _active} = [x | x <- [minBound..], cost x <= mana,
-                                                        x `Set.notMember` _active ]
-availableSpells _ = []
+availableSpells Player{_mana, _inUse} = [x | x <- [minBound..], cost x <= _mana,
+                                         x `Map.notMember` _inUse ]
 
-isPlayer :: Player -> Bool
-isPlayer = isRight . _offense
+boss :: Boss
+boss = Boss 58 9
 
-runTimers :: Player -> Player
-runTimers p@Player{_effects=[]}     = p
-runTimers p@Player{_effects=(x:xs)} = foldr ($) p x & effects .~ xs
+player :: Player
+player = Player 50 500 0 mempty
 
-{-
-Hit Points: 58
-Damage: 9
--}
+data GameState = GameState {
+  _bestScore :: Int,
+  _preFight  :: Int
+  } deriving Show
 
-boss :: Player
-boss = Player 58 0 (Left 9) [] mempty 0
+makeLenses ''GameState
 
-data FinalState = FinalState {
-  _winner  :: !Player
-  , _loser :: !Player
-  }
+cast :: Magic -> Player -> Boss -> (Player, Boss)
+cast m@Missile p b  = (spendMana m p, b & hp -~ 4)
+cast m@Drain p b    = (spendMana m p & hp +~ 2, b & hp -~ 2)
+cast m@Shield p b   = (spendMana m p & inUse . at m ?~ 6, b)
+cast m@Poison p b   = (spendMana m p & inUse . at m ?~ 6, b)
+cast m@Recharge p b = (spendMana m p & inUse . at m ?~ 5, b)
 
-makeLenses ''FinalState
+stillAlive :: HasHP t => t -> Bool
+stillAlive p = p ^?! hp > 0
 
-attack :: Player -> Player -> [(Player, Player)]
-attack p1@Player{_offense = Left damage} p2@Player{_hitPoints, _armor} =
-  [(p2{_hitPoints=max 0 (_hitPoints - (max 1 (damage - _armor)))}, p1)]
-attack p1 p2 = [ swap (applyMagic m p1 p2) | m <- availableSpells p1 ]
-
-allGames :: Player -> Player -> [FinalState]
-allGames p1 p2 = evalState (go p1 p2) maxBound
+applyActive :: Player -> Boss -> (Player, Boss)
+applyActive ip ib = _1 . inUse %~ sub $ Map.foldrWithKey apply (ip,ib) (pred <$> _inUse ip)
   where
-    go :: Player -> Player -> State Int [FinalState]
-    go a b
-      | bossDead = do
-          mn <- get
-          when (isPlayer a && currentSpent < mn) $ put currentSpent
-          pure [FinalState a b]
-      | otherDead = pure []
-      | i'mOut = pure []
-      | otherwise = do
-          mn <- get
-          if currentSpent >= mn
-            then pure []
-            else fold <$> (traverse (uncurry go) $ attack a' b')
-      where
-        bossDead = _hitPoints b <= 0
-        otherDead = _hitPoints a <= 0
-        currentSpent = (max `on` _manaSpent) a b
-        i'mOut = ((a ^? offense . _Right) <|> (b ^? offense . _Right)) == Just 0
-        a' = runTimers a
-        b' = runTimers b
+    sub = Map.filter (> 0) . fmap pred
+    apply Poison _ (p,b)   = (p, b & hp -~ 3)
+    apply Recharge _ (p,b) = (p & mana +~ 101, b)
+    apply _ _ x            = x
+
+armor :: Player -> Int
+armor Player{_inUse}
+  | Map.member Shield _inUse = 7
+  | otherwise = 0
+
+aRound :: Player -> Boss -> State GameState [(Player, Boss)]
+aRound ip b = do
+  mn <- gets _bestScore
+  pf <- gets _preFight
+  let p = ip & hp -~ pf
+      (ongoing, won) = partition (stillAlive . snd) $ do
+        guard (stillAlive p)
+        guard (_spent p < mn)
+        let (p', b') = applyActive p b
+        spell <- availableSpells p'
+        let (p'', b'') = cast spell p' b'
+        if stillAlive b'' then do
+          let p''' = p'' & hp -~ max 1 (b'' ^?! attack - armor p'')
+              (fp, fb) = applyActive p''' b''
+
+          guard (stillAlive fp)
+          pure (fp, fb)
+          else pure (p'', b'')
+  mapM_ (\(Player{_spent}, _) -> when (_spent < mn) $ bestScore #= _spent) won
+  pure ongoing
+
+allGames :: Int -> Player -> Boss -> GameState
+allGames o ip ib = execState (go ip ib) (GameState maxBound o)
+  where go p b = traverse_ (uncurry go) =<< aRound p b
 
 part1 :: Int
-part1 = minimum . fmap (_manaSpent . _winner) $ filter (isPlayer . _winner) $ allGames player boss
-  where
-    player = Player 50 0 (Right 500) [] mempty 0
+part1 = _bestScore $ allGames 0 player boss
 
 part2 :: Int
-part2 = minimum . fmap (_manaSpent . _winner) $ filter (isPlayer . _winner) $ allGames player boss
-  where
-    player = Player 50 0 (Right 500) (cycle [[hitPoints -~ 1], [id]]) mempty 0
+part2 = _bestScore $ allGames 1 player boss

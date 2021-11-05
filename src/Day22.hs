@@ -10,7 +10,6 @@ import           Data.Foldable       (traverse_)
 import           Data.Map.Strict     (Map)
 import qualified Data.Map.Strict     as Map
 import           Data.These
-import           Data.Tuple          (swap)
 
 {-
 Magic Missile costs 53 mana. It instantly does 4 damage.
@@ -116,22 +115,22 @@ aRound ip b = get >>= \GameState{..} -> do
   let p = ip & hp -~ _preFight
   reses <- forM [minBound..] $ \spell -> flip runContT pure $ callCC $ \exit -> do
     check p b exit
-    when (_spent p >= _bestScore) $ exit (This b)
+    when (_spent p >= _bestScore) $ exit (That b)
     let (p', b') = applyActive p b
-    (p'', b'') <- maybe (exit (This b') *> undefined) pure $ cast spell p' b'
+    (p'', b'') <- maybe (exit (That b') *> undefined) pure $ cast spell p' b'
     check p'' b'' exit
     let p''' = p'' & hp -~ max 1 (b'' ^?! attack - armor p'')
         (fp, fb) = applyActive p''' b''
     check fp fb exit
-    pure $ These fb fp
-  let (_, won, ongoing) = partitionThese reses
+    pure $ These fp fb
+  let (won, _, ongoing) = partitionThese reses
   mapM_ (\Player{_spent} -> when (_spent < _bestScore) $ bestScore #= _spent) won
-  pure (swap <$> ongoing)
+  pure (ongoing)
 
   where
     check p' b' exit = do
-      when (not $ stillAlive p') $ exit (This b')
-      when (not $ stillAlive b') $ exit (That p')
+      when (not $ stillAlive p') $ exit (That b')
+      when (not $ stillAlive b') $ exit (This p')
 
 allGames :: Int -> Player -> Boss -> GameState
 allGames o ip ib = execState (go ip ib) (GameState maxBound o)

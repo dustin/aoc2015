@@ -38,6 +38,7 @@ dependencies:
 - lens-aeson
 - scientific
 - these
+- vector
 
 library:
   source-dirs: src

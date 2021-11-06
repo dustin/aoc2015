@@ -18,6 +18,7 @@ import qualified Day21Tests
 import qualified Day22Tests
 import qualified Day23Tests
 import qualified Day24Tests
+import qualified Day25Tests
 import qualified Day2Tests
 import qualified Day3Tests
 import qualified Day4Tests
@@ -52,7 +53,8 @@ tests = [
   testGroup "day21" Day21Tests.tests,
   testGroup "day22" Day22Tests.tests,
   testGroup "day23" Day23Tests.tests,
-  testGroup "day24" Day24Tests.tests
+  testGroup "day24" Day24Tests.tests,
+  testGroup "day25" Day25Tests.tests
     ]
 
 main :: IO ()

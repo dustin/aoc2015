@@ -3,7 +3,7 @@
 
 module Day23 where
 
-import           Advent.AoC                 (Parser, parseFile)
+import           Advent.AoC                 (Parser, parseFile, final)
 import           Control.Applicative        ((<|>))
 import           Data.Vector                (Vector)
 import qualified Data.Vector                as V
@@ -73,11 +73,6 @@ eval m@Machine{..} off = do
     where
       modifyReg RegA f = Just (m{_regA = f _regA}, off+1)
       modifyReg RegB f = Just (m{_regB = f _regB}, off+1)
-
-final :: (a -> Maybe a) -> a -> a
-final f a = case f a of
-              Nothing -> a
-              Just a' -> final f a'
 
 part1 :: IO Int
 part1 = do

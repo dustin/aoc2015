@@ -41,7 +41,7 @@ packages:
 #
 extra-deps:
 - git: https://github.com/dustin/aoc.git
-  commit: 60b4a01f9c09863d16833bcd766daf8855281d26
+  commit: fe9682fd21dde8b047d70c7ee5724ebcb0766888
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

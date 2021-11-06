@@ -3,7 +3,7 @@
 
 module Day23 where
 
-import           Advent.AoC                 (Parser, parseFile, final)
+import           Advent.AoC                 (Parser, final, parseFile)
 import           Control.Applicative        ((<|>))
 import           Data.Vector                (Vector)
 import qualified Data.Vector                as V
@@ -59,20 +59,18 @@ readReg RegA = _regA
 readReg RegB = _regB
 
 eval :: Machine -> Int -> Maybe (Machine, Int)
-eval m@Machine{..} off = do
-  ins <- _ins V.!? off
-  case ins of
-    (Half r)                       -> modifyReg r (`div` 2)
-    (Triple r)                     -> modifyReg r (* 3)
-    (Increment r)                  -> modifyReg r succ
-    (Jump o)                       -> Just (m, off + o)
-    (JIE r o) | even (readReg r m) -> Just (m, off + o)
-    (JIO r o) | readReg r m == 1   -> Just (m, off + o)
-    _                              -> Just (m, off + 1)
-
+eval m@Machine{..} off = e <$> _ins V.!? off
     where
-      modifyReg RegA f = Just (m{_regA = f _regA}, off+1)
-      modifyReg RegB f = Just (m{_regB = f _regB}, off+1)
+      e (Half r)                       = modifyReg r (`div` 2)
+      e (Triple r)                     = modifyReg r (* 3)
+      e (Increment r)                  = modifyReg r succ
+      e (Jump o)                       = (m, off + o)
+      e (JIE r o) | even (readReg r m) = (m, off + o)
+      e (JIO r o) | readReg r m == 1   = (m, off + o)
+      e _                              = (m, off + 1)
+
+      modifyReg RegA f = (m{_regA = f _regA}, off+1)
+      modifyReg RegB f = (m{_regB = f _regB}, off+1)
 
 part1 :: IO Int
 part1 = do
